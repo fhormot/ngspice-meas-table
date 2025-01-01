@@ -5,7 +5,7 @@ V {}
 S {}
 E {}
 B 2 1120 -460 1920 -60 {flags=graph
-y1=-0.025
+y1=-0.023
 y2=1.9
 ypos1=0
 ypos2=2
@@ -19,8 +19,9 @@ subdivx=1
 xlabmag=1.0
 ylabmag=1.0
 node="v_i
-v_o"
-color="4 8"
+v_o
+t_pd_l2h"
+color="4 8 4"
 dataset=-1
 unitx=1
 logx=0
@@ -29,13 +30,13 @@ logy=0
 autoload=0
 sim_type=tran}
 T {tcleval([xschem raw read $netlist_dir/[file tail [file rootname [xschem get current_name]]]-meas.raw
-  set table "t_pd_l2h,t_pd_h2l"
-  foreach t_pd_l2h [xschem raw values t_pd_l2h] t_pd_h2l [xschem raw values t_pd_h2l] \{
-    append table \\\\n [to_eng $t_pd_l2h] \{,\} [to_eng $t_pd_h2l]
+  set table "MC sample,t_pd_l2h,t_pd_h2l"
+  foreach index_mc [xschem raw values index_mc] t_pd_l2h [xschem raw values t_pd_l2h] t_pd_h2l [xschem raw values t_pd_h2l] \{
+    append table \\\\n [to_eng $index_mc] \{,\} [to_eng $t_pd_l2h] \{,\} [to_eng $t_pd_h2l]
   \}
   xschem raw switch 0
   return [tabulate $table ,]])
-} 2130 -470 0 1 0.3 0.3 {floater=1 font=monospace layer=15}
+} 2230 -470 0 1 0.3 0.3 {floater=1 font=monospace layer=15}
 N 380 -410 520 -410 {lab=v_i}
 N 950 -260 1000 -260 {lab=v_o}
 N 120 -460 120 -280 {lab=VDD}
@@ -103,32 +104,48 @@ value="
 .param t_top=1n
 .control
 	save all
+	setseed 100
+	reset
+
+	let mc_points=10
+	let index=0
 
 	setplot new
 	set myplot=$curplot
-	let t_pd_l2h=vector(1)
-	let t_pd_h2l=vector(1)
+	let index_mc=vector(mc_points)
+	let t_pd_l2h=vector(mc_points)
+	let t_pd_h2l=vector(mc_points)
 
-	tran 0.1p 3n
+	while index < mc_points
+		tran 0.1p 3n
 
-	MEAS TRAN t_pd_L2H TRIG V(v_i) VAL=0.9 RISE=1 TARG V(v_o) VAL=0.9 RISE=1
-	MEAS TRAN t_pd_H2L TRIG V(v_i) VAL=0.9 FALL=1 TARG V(v_o) VAL=0.9 FALL=1
+		MEAS TRAN t_pd_L2H TRIG V(v_i) VAL=0.9 RISE=1 TARG V(v_o) VAL=0.9 RISE=1
+		MEAS TRAN t_pd_H2L TRIG V(v_i) VAL=0.9 FALL=1 TARG V(v_o) VAL=0.9 FALL=1
 
-	let \{$myplot\}.t_pd_l2h[0]=t_pd_l2h
-	let \{$myplot\}.t_pd_h2l[0]=t_pd_h2l
+		let \{$myplot\}.index_mc[index]=index
+		let \{$myplot\}.t_pd_l2h[index]=t_pd_l2h
+		let \{$myplot\}.t_pd_h2l[index]=t_pd_h2l
 
-	write ngspice-meas-table-mc.raw
+		write ngspice-meas-table-mc.raw
+		set appendwrite
+		
+		let index = index + 1
+		reset
+	end
+	unset appendwrite
 
 	setplot $myplot
+	settype notype index_mc
 	settype time t_pd_l2h
 	settype time t_pd_h2l
+	setscale index_mc
 	write ngspice-meas-table-mc-meas.raw
 .endc
 " }
 C {devices/code.sym} 1110 -610 0 0 {name=TT_MODELS
 only_toplevel=true
 format="tcleval(@value )"
-value=".lib $::SKYWATER_MODELS/sky130.lib.spice tt
+value=".lib $::SKYWATER_MODELS/sky130.lib.spice mc
 .include $::SKYWATER_STDCELLS/sky130_fd_sc_hd.spice"
 spice_ignore=false
 place=header}
